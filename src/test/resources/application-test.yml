@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 16
+      minimum-idle: 2
+      connection-timeout: 10000
+# Future concurrency scenarios must use at most 8 workers, leaving pool headroom.
+# Isolation is inherited from PostgreSQL and checked through a real connection.
