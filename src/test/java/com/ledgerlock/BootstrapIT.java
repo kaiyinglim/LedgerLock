@@ -24,9 +24,9 @@ class BootstrapIT extends AbstractPostgresIntegrationTest {
   @Autowired TestRestTemplate http;
 
   @Test
-  void applicationStartsAndServesHttpWithoutDomainEndpoints() {
+  void applicationStartsAndServesHttp() {
     assertThat(entityManagerFactory.isOpen()).isTrue();
-    // No controller exists in Milestone 0: an HTTP 404 proves the server responds.
+    // The root route is intentionally unmapped; a 404 proves the HTTP server responds.
     assertThat(http.getForEntity("/", String.class).getStatusCode())
         .isEqualTo(HttpStatus.NOT_FOUND);
   }
@@ -58,9 +58,10 @@ class BootstrapIT extends AbstractPostgresIntegrationTest {
   }
 
   @Test
-  void flywayInitializesHistoryBeforeDomainMigrationsExist() {
+  void flywayAppliesAccountMigration() {
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
-    assertThat(flyway.info().applied()).isEmpty();
+    assertThat(flyway.info().applied()).hasSize(1);
+    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
     assertThat(
             jdbc.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables "
