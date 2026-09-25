@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.sql.SQLException;
 import java.time.Instant;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -25,12 +24,6 @@ class AccountIT extends AbstractPostgresIntegrationTest {
 
   @Autowired TestRestTemplate http;
   @Autowired JdbcTemplate jdbc;
-
-  @BeforeEach
-  void clearAccounts() {
-    // HTTP requests commit on server threads, outside any transaction on the test thread.
-    jdbc.update("DELETE FROM accounts");
-  }
 
   @Test
   void createsPersistsAndRetrievesZeroBalanceCustomer() {
@@ -89,7 +82,10 @@ class AccountIT extends AbstractPostgresIntegrationTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody().get("status").asInt()).isEqualTo(400);
     assertThat(response.getBody().get("detail").asText()).isNotBlank();
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM accounts", Integer.class)).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM accounts WHERE account_type = 'CUSTOMER'", Integer.class))
+        .isZero();
   }
 
   @Test
@@ -101,12 +97,9 @@ class AccountIT extends AbstractPostgresIntegrationTest {
   void returnsNotFoundForMissingAndSystemAccounts() {
     assertThat(http.getForEntity("/accounts/9223372036854775807", JsonNode.class).getStatusCode())
         .isEqualTo(HttpStatus.NOT_FOUND);
-    // A test fixture checks the reserved account type; production seeds it in Milestone 2.
     Long systemId =
-        jdbc.queryForObject(
-            "INSERT INTO accounts (owner_name, account_type, balance_sen) "
-                + "VALUES ('System fixture', 'SYSTEM', -5000) RETURNING id",
-            Long.class);
+        jdbc.queryForObject("SELECT id FROM accounts WHERE account_type = 'SYSTEM'", Long.class);
+    jdbc.update("UPDATE accounts SET balance_sen = -5000 WHERE id = ?", systemId);
     ResponseEntity<JsonNode> response = http.getForEntity("/accounts/" + systemId, JsonNode.class);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(response.getBody().get("status").asInt()).isEqualTo(404);
@@ -138,7 +131,10 @@ class AccountIT extends AbstractPostgresIntegrationTest {
               SQLException cause = (SQLException) error.getCause();
               assertThat(cause.getSQLState()).isEqualTo(sqlState);
             });
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM accounts", Integer.class)).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM accounts WHERE account_type = 'CUSTOMER'", Integer.class))
+        .isZero();
   }
 
   @Test

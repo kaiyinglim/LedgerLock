@@ -1,5 +1,7 @@
 package com.ledgerlock.entity;
 
+import com.ledgerlock.exception.BalanceLimitExceededException;
+import com.ledgerlock.exception.InvalidDepositAmountException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,9 +17,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 /**
  * Stores an account's current balance in integer sen.
  *
- * <p>Customer creation cannot supply a balance: funds must enter through a recorded deposit in a
- * later milestone. Optimistic versioning is deliberately absent so the later lost-update demo is
- * not hidden by automatic version checks.
+ * <p>Customer creation cannot supply a balance: funds enter through a recorded deposit. Optimistic
+ * versioning is deliberately absent so the later lost-update demo is not hidden by automatic
+ * version checks.
  */
 @Entity
 @Table(name = "accounts")
@@ -60,6 +62,38 @@ public class Account {
 
   public Long getId() {
     return id;
+  }
+
+  /** Updates the cache; the caller must record the deposit in the same database transaction. */
+  public void creditDeposit(long amountSen) {
+    if (amountSen <= 0) {
+      throw new InvalidDepositAmountException();
+    }
+    if (accountType != AccountType.CUSTOMER) {
+      throw new IllegalStateException("Only customer accounts can receive deposits");
+    }
+    try {
+      balanceSen = Math.addExact(balanceSen, amountSen);
+    } catch (ArithmeticException exception) {
+      throw new BalanceLimitExceededException();
+    }
+  }
+
+  /**
+   * Clearing represents external funds, so its balance decreases when a customer receives money.
+   */
+  public void debitClearingForDeposit(long amountSen) {
+    if (amountSen <= 0) {
+      throw new InvalidDepositAmountException();
+    }
+    if (accountType != AccountType.SYSTEM) {
+      throw new IllegalStateException("Only the system account can clear deposits");
+    }
+    try {
+      balanceSen = Math.subtractExact(balanceSen, amountSen);
+    } catch (ArithmeticException exception) {
+      throw new BalanceLimitExceededException();
+    }
   }
 
   public String getOwnerName() {

@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
   Optional<Account> findByIdAndAccountType(long id, AccountType accountType);
+
+  Optional<Account> findByAccountType(AccountType accountType);
 }

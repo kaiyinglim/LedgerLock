@@ -1,10 +1,13 @@
 package com.ledgerlock;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -19,6 +22,17 @@ import org.testcontainers.utility.DockerImageName;
 @ActiveProfiles("test")
 @Import(AbstractPostgresIntegrationTest.DatabaseConfiguration.class)
 public abstract class AbstractPostgresIntegrationTest {
+
+  @Autowired private JdbcTemplate database;
+
+  @BeforeEach
+  void resetDatabase() {
+    // HTTP requests commit outside the test thread. Clear their data but preserve Flyway's seed.
+    database.update("DELETE FROM ledger_entries");
+    database.update("DELETE FROM ledger_transactions");
+    database.update("DELETE FROM accounts WHERE account_type = 'CUSTOMER'");
+    database.update("UPDATE accounts SET balance_sen = 0 WHERE account_type = 'SYSTEM'");
+  }
 
   @TestConfiguration(proxyBeanMethods = false)
   static class DatabaseConfiguration {

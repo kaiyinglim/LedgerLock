@@ -58,10 +58,16 @@ class BootstrapIT extends AbstractPostgresIntegrationTest {
   }
 
   @Test
-  void flywayAppliesAccountMigration() {
+  void flywayAppliesMigrationsAndSeedsClearingExactlyOnce() {
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
-    assertThat(flyway.info().applied()).hasSize(1);
-    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+    assertThat(flyway.migrate().migrationsExecuted).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM accounts WHERE account_type = 'SYSTEM' AND balance_sen = 0",
+                Integer.class))
+        .isEqualTo(1);
+    assertThat(flyway.info().applied()).hasSize(3);
+    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
     assertThat(
             jdbc.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables "

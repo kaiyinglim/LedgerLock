@@ -16,6 +16,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
+  @ExceptionHandler(InvalidDepositAmountException.class)
+  public ProblemDetail handleInvalidDepositAmount(InvalidDepositAmountException exception) {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+  }
+
+  @ExceptionHandler(BalanceLimitExceededException.class)
+  public ProblemDetail handleBalanceLimitExceeded(BalanceLimitExceededException exception) {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+  }
+
   @ExceptionHandler(AccountNotFoundException.class)
   public ProblemDetail handleAccountNotFound(AccountNotFoundException exception) {
     return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
